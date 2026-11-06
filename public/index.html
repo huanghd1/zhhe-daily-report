@@ -61,6 +61,18 @@
     }
     .date-line { margin: 0; font-family: var(--mono); font-size: 15px; color: var(--muted); }
     .date-line time { color: var(--text); }
+    /* 数据不是今天的时提示（如 08:00 之前，或当天的 Actions 运行失败） */
+    .notice {
+      display: inline-block;
+      margin: 12px 0 0;
+      padding: 8px 12px;
+      border: 1px solid rgba(251, 191, 36, 0.35);
+      border-radius: 10px;
+      background: rgba(251, 191, 36, 0.08);
+      color: #fcd34d;
+      font-size: 13.5px;
+    }
+    .notice[hidden] { display: none; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
     .card {
       position: relative;
@@ -134,7 +146,6 @@
     .analysis-body p { margin: 0 0 0.9em; }
     .analysis-body p:last-child { margin-bottom: 0; }
     .state { padding: 28px 8px; text-align: center; color: var(--muted); font-size: 14px; }
-    .state code { font-family: var(--mono); color: var(--accent); }
     .skeleton { height: 54px; margin: 10px 0; border-radius: 10px; background: linear-gradient(90deg, var(--glass), var(--glass-hover), var(--glass)); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
     @keyframes shimmer { to { background-position: -200% 0; } }
     footer { margin-top: 24px; font-family: var(--mono); font-size: 12px; color: var(--muted); text-align: center; }
@@ -155,6 +166,7 @@
       <p class="prompt">$ daily-brief --today <span class="caret" aria-hidden="true"></span></p>
       <h1>每日前沿科技与 GitHub 趋势简报</h1>
       <p class="date-line"><time id="today"></time></p>
+      <p class="notice" id="notice" role="status" hidden></p>
     </header>
 
     <main>
@@ -227,12 +239,12 @@
       }
     }
 
-    function localDateString(d) {
-      const pad = (n) => String(n).padStart(2, '0');
-      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    // 北京时间的今天（YYYY-MM-DD），与生成脚本的归档日期口径一致，不受访问者所在时区影响
+    function beijingToday() {
+      return new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
     }
 
-    // dateStr 形如 2026-11-06；优先使用服务器返回的日期，与简报的归档日期保持一致
+    // dateStr 形如 2026-11-06；数据加载后改用简报自身的日期
     function setToday(dateStr) {
       const [y, m, d] = dateStr.split('-').map(Number);
       const weekday = WEEKDAYS[new Date(y, m - 1, d).getDay()];
@@ -302,39 +314,46 @@
       box.setAttribute('aria-busy', 'false');
     }
 
-    function stateBox(message, hint) {
-      const box = el('div', 'state', message);
-      if (hint) {
-        box.append(el('br'));
-        box.append(el('code', null, hint));
-      }
-      return box;
+    function stateBox(message) {
+      return el('div', 'state', message);
     }
 
-    function showAll(message, hint) {
-      ['gh-list', 'news-list', 'analysis'].forEach((id) => fill(id, stateBox(message, hint)));
+    function showAll(message) {
+      ['gh-list', 'news-list', 'analysis'].forEach((id) => fill(id, stateBox(message)));
     }
 
+    // data.json 由 GitHub Actions 每天北京时间 08:00 生成并随页面一起发布；
+    // no-cache 让浏览器每次向 Pages 确认是否有新版本，避免更新后仍显示缓存里的旧简报
     async function load() {
-      setToday(localDateString(new Date()));
+      const today = beijingToday();
+      setToday(today);
       let res;
       let data;
       try {
-        res = await fetch('/api/reports/today', { headers: { Accept: 'application/json' } });
+        res = await fetch('./data.json', { cache: 'no-cache' });
+        if (res.status === 404) {
+          showAll('简报尚未生成，每天北京时间 08:00 自动更新，请稍后再来。');
+          return;
+        }
+        if (!res.ok) {
+          showAll(`简报加载失败（HTTP ${res.status}），请稍后刷新。`);
+          return;
+        }
         data = await res.json();
       } catch {
-        showAll('简报加载失败，请检查服务是否运行后刷新页面。');
+        showAll('简报加载失败，请检查网络后刷新页面。');
         return;
       }
-      if (data && typeof data.date === 'string') setToday(data.date);
+      if (!data || typeof data !== 'object' || !/^\d{4}-\d{2}-\d{2}$/.test(data.date)) {
+        showAll('简报数据格式异常，请稍后刷新。');
+        return;
+      }
 
-      if (res.status === 404) {
-        showAll('今日简报尚未生成，每天 08:00 自动生成，也可以手动触发：', 'POST /api/reports/generate');
-        return;
-      }
-      if (!res.ok) {
-        showAll(`简报加载失败（HTTP ${res.status}），请稍后刷新。`);
-        return;
+      setToday(data.date);
+      if (data.date !== today) {
+        const notice = $('notice');
+        notice.textContent = `今日简报尚未更新（每天北京时间 08:00 左右生成），以下是 ${data.date} 的简报。`;
+        notice.hidden = false;
       }
 
       const repos = Array.isArray(data.githubTrending) ? data.githubTrending : [];
@@ -347,9 +366,11 @@
       $('gh-meta').textContent = data.githubSource === 'search'
         ? `近 7 天新项目 · ${data.githubDataDate}`
         : `Trending · ${data.githubDataDate}`;
-      if (data.generatedAt) {
-        const t = new Date(data.generatedAt);
-        $('ai-meta').textContent = `生成于 ${t.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`;
+      const t = new Date(data.generatedAt);
+      if (!Number.isNaN(t.getTime())) {
+        // 按北京时间显示，和简报日期口径一致
+        const hm = t.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Shanghai' });
+        $('ai-meta').textContent = `生成于北京时间 ${hm}`;
       }
     }
 

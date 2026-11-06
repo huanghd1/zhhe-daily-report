@@ -4,29 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "start": "node dist/server.js",
-    "dev": "tsx watch src/server.ts",
-    "test": "vitest run",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
-  },
-  "dependencies": {
-    "@fastify/static": "10.1.10",
-    "@libsql/client": "0.18.0",
-    "drizzle-orm": "0.45.4",
-    "fastify": "5.12.8"
+    "update": "node scripts/update-data.js",
+    "preview": "node scripts/preview.js",
+    "test": "vitest run"
   },
   "devDependencies": {
-    "@types/node": "24.19.2",
-    "drizzle-kit": "0.31.11",
-    "tsx": "4.23.15",
-    "typescript": "7.0.2",
     "vitest": "5.1.0"
-  },
-  "allowScripts": {
-    "esbuild@0.28.2": true,
-    "esbuild@0.25.12": true,
-    "esbuild@0.18.20": true
   }
 }

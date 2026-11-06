@@ -1,82 +1,54 @@
-# zhhe-reonr
+# zhhe-reonr · 每日前沿科技与 GitHub 趋势简报
 
-基于 TypeScript、Fastify 和 Drizzle ORM 的后端服务示例，数据库使用 libsql（默认本地 SQLite 文件）。
+纯静态站点，部署在 GitHub Pages。GitHub Actions 每天北京时间 08:00 运行 `scripts/update-data.js`：抓取 GitHub 热门项目和 Hacker News 上的 AI 快讯，调用大模型生成中文解读，写入 `public/data.json` 并提交回仓库，然后把 `public/` 发布到 Pages。页面只读取这个 JSON，没有后端和数据库。
 
-提供以下接口：
+- `/`：每日简报
+- `/fortune`：赛博求签（签文写在页面里，纯前端随机抽取）
 
-- `GET /health`：存活检查，无需认证
-- `GET /users`：查询用户列表
-- `POST /users`：创建用户，接收 `name`、`email`
-- `PUT /users/:id`：更新用户的 `name` 或 `email`
-- `DELETE /users/:id`：删除用户
+## 目录结构
 
-除 `/health` 外，所有接口都需要请求头 `Authorization: Bearer <AUTH_TOKEN>`。
-
-## 前置要求
-
-- Node.js 24 或以上
-- npm 11 或以上
-
-## 安装
-
-```bash
-git clone <仓库地址>
-cd zhhe-reonr
-npm install
+```
+.
+├── public/                 # 发布到 Pages 的全部内容
+│   ├── index.html          # 每日简报页面，fetch('./data.json')
+│   ├── fortune.html        # 赛博求签
+│   └── data.json           # 由脚本生成，Actions 每天自动提交
+├── scripts/
+│   ├── update-data.js      # 抓取 + 大模型分析 → public/data.json（无第三方依赖）
+│   ├── update-data.test.js # vitest 测试，mock fetch，不发外网请求
+│   └── preview.js          # 本地预览服务，只监听 127.0.0.1
+└── .github/workflows/update.yml
 ```
 
-## 环境配置
+## 部署到 GitHub Pages
 
-复制示例文件并填入自己的 token：
+1. 仓库需为公开仓库（免费账号的私有仓库不能使用 Pages）。
+2. Settings → Secrets and variables → Actions → Secrets → New repository secret：名称 `LLM_API_KEY`，值为大模型 API key。
+3. 同一页面切到 Variables（可选）：`LLM_BASE_URL`、`LLM_MODEL`。不设置时默认 `https://api.deepseek.com/v1` 和 `deepseek-chat`。
+4. Settings → Pages → Build and deployment → Source 选 GitHub Actions。
+5. Actions → 每日简报 → Run workflow，手动跑一次。成功后访问 `https://<用户名>.github.io/<仓库名>/`。
 
-```bash
-cp .env.example .env
-```
+之后每天北京时间 08:00 自动更新（GitHub 定时任务高峰期可能延迟十几分钟到半小时）。某天生成失败时，页面继续显示上一份简报并提示未更新，Actions 会发邮件通知。只修改 `public/` 或 `scripts/` 并推送时，workflow 只重新发布，不调用大模型。
 
-`.env` 中的变量如下：
+## 本地运行
 
-| 变量 | 默认值 | 说明 |
-| --- | --- | --- |
-| `AUTH_TOKEN` | 无（必填） | `/users` 接口的访问令牌，未设置时服务无法启动 |
-| `PORT` | `3000` | 监听端口 |
-| `HOST` | `0.0.0.0` | 监听地址，设为 `127.0.0.1` 可限制只允许本机访问 |
-| `DATABASE_URL` | `file:./data/app.db` | libsql / SQLite 连接地址 |
-
-`.env` 已被 `.gitignore` 忽略，不要提交到版本库。
-
-## 数据库
-
-首次运行前创建数据目录并执行迁移：
+需要 Node.js 24 或以上。
 
 ```bash
-mkdir -p data
-npm run db:migrate
+npm install            # 只装测试用的 vitest；生成脚本本身没有依赖
+cp .env.example .env   # 填入 LLM_API_KEY 等
+npm run update         # 生成 public/data.json（会调用一次大模型）
+npm run preview        # http://127.0.0.1:4173/ 预览页面
+npm test               # 运行测试
 ```
 
-修改 `src/db/schema.ts` 后，执行 `npm run db:generate` 生成新的迁移文件，并与代码一起提交。
+直接双击打开 `public/index.html` 时浏览器会拦截读取 `data.json`，需要通过 `npm run preview` 访问。
 
-## 运行测试
+## 数据来源
 
-```bash
-npm test
-```
-
-测试使用内存数据库，不会读写本地文件，也不依赖 `.env`。
-
-## 启动服务
-
-开发模式（文件变动自动重启）：
-
-```bash
-npm run dev
-```
-
-生产模式（需先编译）：
-
-```bash
-npm run build
-npm start
-```
+- GitHub：优先使用 isboyjc/github-trending-api 的每日榜单；它超过 48 小时未更新（2026-08 起已停更）或请求失败时，改用 GitHub Search API 的“近 7 天新建、按 star 排序”，页面会标明实际口径。
+- AI 快讯：Hacker News Algolia 接口，过去 24 小时标题含 AI / LLM / Claude / Anthropic 的帖子，按点赞数取前 5，过滤股市、IPO 等财经标题。
+- 分析：OpenAI 兼容协议的大模型（DeepSeek、Kimi 等）。
 
 ## 许可证
 

@@ -1,0 +1,88 @@
+# 每日简报：生成 public/data.json → 提交回仓库 → 把 public/ 发布到 GitHub Pages
+#
+# 首次使用前在仓库 Settings 中配置：
+#   1. Secrets and variables → Actions → Secrets：新建 LLM_API_KEY（大模型 API key，必填）
+#   2. 同一页面的 Variables（可选）：LLM_BASE_URL、LLM_MODEL，不设置时使用下方默认值
+#   3. Pages → Build and deployment → Source 选 GitHub Actions
+name: 每日简报
+
+on:
+  schedule:
+    # cron 使用 UTC：UTC 00:00 = 北京时间 08:00。GitHub 高峰期定时任务可能延迟十几分钟到半小时
+    - cron: '0 0 * * *'
+  # Actions 页面的 Run workflow 按钮，手动生成一次
+  workflow_dispatch:
+  # 改了页面或脚本时只重新发布，不调用大模型
+  push:
+    branches: [main]
+    paths:
+      - 'public/**'
+      - 'scripts/**'
+      - '.github/workflows/update.yml'
+
+permissions:
+  contents: read
+
+# 同一时间只跑一个发布任务；排队的新任务会等前一个结束，不会中途取消
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # 提交 data.json
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        if: github.event_name != 'push'
+        with:
+          node-version: 24
+          package-manager-cache: false # 脚本没有依赖，不需要 npm install
+
+      # 任一步失败都以非 0 退出，旧的 data.json 保持不变，后续提交和发布步骤不会执行
+      - name: 生成 public/data.json
+        if: github.event_name != 'push'
+        run: node scripts/update-data.js
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_BASE_URL: ${{ vars.LLM_BASE_URL || 'https://api.deepseek.com/v1' }}
+          LLM_MODEL: ${{ vars.LLM_MODEL || 'deepseek-chat' }}
+          # 降级到 GitHub Search API 时使用，避免共享出口 IP 被匿名限流
+          GITHUB_TOKEN: ${{ github.token }}
+
+      # 用 GITHUB_TOKEN 推送的提交不会再次触发 workflow，不会形成循环
+      - name: 提交 data.json
+        if: github.event_name != 'push'
+        run: |
+          git add public/data.json
+          if git diff --cached --quiet; then
+            echo "data.json 没有变化，跳过提交"
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m "chore: update daily brief $(TZ=Asia/Shanghai date +%F)"
+          # 运行期间有人推送了新提交时，先变基到最新的 main 再推
+          git push || (git pull --rebase origin main && git push)
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

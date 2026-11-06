@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>赛博算命机</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: system-ui, -apple-system, "Microsoft YaHei", sans-serif;
+      background: #fafafa;
+      color: #222;
+    }
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    button {
+      padding: 0.8rem 2rem;
+      font-size: 1.1rem;
+      border: 1px solid #222;
+      border-radius: 6px;
+      background: #fff;
+      cursor: pointer;
+    }
+    button:hover:not(:disabled) {
+      background: #222;
+      color: #fff;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: wait;
+    }
+    #result {
+      margin-top: 2rem;
+      max-width: 28rem;
+      min-height: 3rem;
+      text-align: center;
+      font-size: 1.05rem;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <h1>赛博算命机</h1>
+  <button id="draw" type="button">赛博求签</button>
+  <p id="result" role="status" aria-live="polite"></p>
+
+  <script>
+    // 签文直接写在页面里，纯前端随机抽取，不依赖任何后端接口
+    const FORTUNES = [
+      '今日宜重构，忌合并 master。',
+      'Bug 会在凌晨 3 点找上你，请提前备好咖啡。',
+      '宜提交 commit，忌把 commit message 写成 "fix"。',
+      '你今天的 console.log 会比你更早被人看见。',
+      '宜备份数据库，忌在生产环境里 rm -rf。',
+      '此刻写下的 TODO，三年后依然是 TODO。',
+      '宜与产品经理和平对话，忌说"这个很简单"。',
+      '今日利于 code review，但周五下午请克制 push。',
+      '你注定会在某个深夜与 off-by-one 错误相遇。',
+      '宜写单元测试，忌相信"在我电脑上是好的"。',
+      '宜删除注释掉的旧代码，别怕，Git 记得它们。',
+      '中二之气觉醒：你的变量名 x1 将被后人传颂，但不是以好的方式。',
+      '今日键盘上的 Ctrl+Z 将拯救你一次。',
+      '宜先去睡觉，明天的你修这个 bug 只需十分钟。',
+      '忌随手引入一个只有三行的 npm 包。',
+      '你将在 Stack Overflow 上找到答案，但它来自 2012 年。',
+      '宜与 Git 和解，忌对 main 分支 force push。',
+      '星象显示：今天的 sprint 里会有一个"很快就好"的任务。',
+      '宜拥抱 AI，但请亲自读一遍它写的代码。',
+      '吾之代码，今日必将 "works on my machine" 到底。',
+    ];
+    const button = document.getElementById('draw');
+    const result = document.getElementById('result');
+
+    button.addEventListener('click', () => {
+      result.textContent = FORTUNES[Math.floor(Math.random() * FORTUNES.length)];
+    });
+  </script>
+</body>
+</html>
