@@ -12,6 +12,7 @@
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
+    "@fastify/static": "10.1.10",
     "@libsql/client": "0.18.0",
     "drizzle-orm": "0.45.4",
     "fastify": "5.12.8"
