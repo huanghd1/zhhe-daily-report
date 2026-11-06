@@ -11,6 +11,14 @@ const GITHUB_SEARCH_URL = 'https://api.github.com/search/repositories';
 // HN 官方 Algolia 搜索接口；hnrss.org 实测不稳定，Anthropic 官网没有 RSS
 const HN_SEARCH_URL = 'https://hn.algolia.com/api/v1/search';
 const HN_KEYWORDS = 'AI LLM Claude Anthropic';
+// 纯财经新闻（股市、IPO、估值等）与“前沿技术动态”无关，标题命中任一词即丢弃。
+// 按整词匹配（允许复数），避免误伤 marketplace、Stockfish 这类技术词；不收 shares 等常见动词，免得误删产品新闻
+const FINANCE_TITLE_PATTERN =
+  /\b(?:stocks?|ipos?|nasdaq|markets?|investors?|valuations?|wall street|sell-?offs?)\b/i;
+
+export function isFinanceTitle(title: string): boolean {
+  return FINANCE_TITLE_PATTERN.test(title);
+}
 
 const FETCH_TIMEOUT_MS = 15_000;
 // 推理类模型（如 kimi-k3.1-pro）会先输出思考过程，耗时较长
@@ -196,7 +204,7 @@ export async function fetchAiNews(now: Date = new Date()): Promise<NewsItem[]> {
     const url = safeUrl(hit.url) ?? (/^\d+$/.test(id) ? `https://news.ycombinator.com/item?id=${id}` : null);
     // 同一篇文章常被多人重复提交，按标题去重
     const key = title.toLowerCase();
-    if (!title || !url || seen.has(key)) continue;
+    if (!title || !url || seen.has(key) || isFinanceTitle(title)) continue;
     seen.add(key);
     news.push({ title, url, source: hostOf(url) });
     if (news.length === TOP_NEWS) break;

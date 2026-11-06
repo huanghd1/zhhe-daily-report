@@ -4,6 +4,7 @@ import {
   fetchAiNews,
   fetchGithubTrending,
   generateAnalysis,
+  isFinanceTitle,
   parseStars,
   readLlmConfig,
   ReportError,
@@ -180,6 +181,44 @@ describe('fetchAiNews', () => {
     mockFetch({ 'https://hn.algolia.com/api/v1/search': { hits: [] } });
 
     await expect(fetchAiNews(NOW)).rejects.toMatchObject({ stage: 'news' });
+  });
+});
+
+describe('isFinanceTitle', () => {
+  it.each([
+    'Nasdaq Sinks 5% as Investors Retreat from AI Trade After Election',
+    'Major Investors Are Skeptical Anthropic IPO Can Achieve $1.5T Valuation',
+    'AI stock selloffs fuel fears',
+    'Wipeout for AI stocks sends Wall Street reeling',
+    'AI market cools',
+  ])('flags finance headline: %s', (title) => {
+    expect(isFinanceTitle(title)).toBe(true);
+  });
+
+  it.each([
+    'Claude Code sends your email address to websites',
+    'Tencent Launches Hy4, One of the Leading Open-Source AI Models',
+    'Show HN: An AI agent marketplace',
+    'Stockfish-style search for LLM reasoning',
+  ])('keeps tech headline: %s', (title) => {
+    expect(isFinanceTitle(title)).toBe(false);
+  });
+
+  it('drops finance stories from the news list and backfills from the rest', async () => {
+    mockFetch({
+      'https://hn.algolia.com/api/v1/search': {
+        hits: [
+          { title: 'Nasdaq Sinks 5% as Investors Retreat from AI Trade', url: 'https://wsj.com/a', points: 500, objectID: '1' },
+          { title: 'Claude Code sends your email address to websites', url: 'https://github.com/x', points: 469, objectID: '2' },
+          { title: 'Anthropic IPO valuation doubts', url: 'https://wsj.com/b', points: 300, objectID: '3' },
+          { title: 'New open LLM released', url: 'https://example.com/llm', points: 100, objectID: '4' },
+        ],
+      },
+    });
+
+    const news = await fetchAiNews(NOW);
+
+    expect(news.map((n) => n.title)).toEqual(['Claude Code sends your email address to websites', 'New open LLM released']);
   });
 });
 

@@ -9,7 +9,8 @@ TypeScript + Fastify + Drizzle 的后端服务，数据库使用 libsql（本地
 ├── src/
 │   ├── app.ts          # 构建 Fastify 实例，注册全部路由，db 由调用方注入
 │   ├── app.test.ts     # 路由测试，使用 app.inject、内存库和 mock fetch，不占用端口、不发外网请求
-│   ├── load-env.ts     # 读取根目录 .env 到 process.env，由 server.ts 最先导入
+│   ├── load-env.ts     # 读取根目录 .env 到 process.env 并打印读到的变量名，由 server.ts 最先导入
+│   ├── env-file.ts     # .env 解析：按项目根目录定位，兼容 UTF-8 BOM / UTF-16（不依赖 dotenv）
 │   ├── server.ts       # 入口，加载 .env 后监听端口，并启动每天 08:00 的简报定时任务
 │   ├── scheduler.ts    # 原生 setTimeout 实现的每日定时任务（不依赖 node-cron）
 │   ├── services/
@@ -53,7 +54,7 @@ npm run db:migrate          # 执行迁移
 | `LLM_BASE_URL` | 无 | 如 `https://api.deepseek.com` 或 `https://api.moonshot.cn/v1`，请求 `${LLM_BASE_URL}/chat/completions` |
 | `LLM_MODEL` | 无 | 如 `deepseek-flash`、`kimi-k3.1-pro` |
 
-环境变量可写在根目录 `.env` 中（格式 `KEY=value`，模板见 `.env.example`），服务启动时由 `src/load-env.ts` 读取，已存在的系统环境变量优先。`.env` 已被 `.gitignore` 忽略，不要提交。测试会自行设置 `AUTH_TOKEN` 和 LLM 变量，不依赖 `.env`。
+环境变量可写在根目录 `.env` 中（格式 `KEY=value`，模板见 `.env.example`），服务启动时由 `src/load-env.ts` 读取，已存在且非空的系统环境变量优先。`.env` 已被 `.gitignore` 忽略，不要提交。测试会自行设置 `AUTH_TOKEN` 和 LLM 变量，不依赖 `.env`。
 
 三个 `LLM_*` 变量缺失时服务照常启动（会打印提示），只有生成简报会返回 503。
 
@@ -67,7 +68,7 @@ npm run db:migrate          # 执行迁移
 
 ## 每日简报
 
-- 数据源：GitHub 榜单优先用 isboyjc/github-trending-api，它的 `pubDate` 超过 48 小时（2026-08 起已停更）或请求失败时，降级到 GitHub Search API（近 7 天新建、按 star 排序），`github_source` 字段记录实际来源。AI 快讯用 HN Algolia 接口（标题含 AI / LLM / Claude / Anthropic、过去 24 小时、按点赞数取前 5）。Anthropic 官网没有 RSS，hnrss.org 不稳定，所以没有使用 rss-parser。
+- 数据源：GitHub 榜单优先用 isboyjc/github-trending-api，它的 `pubDate` 超过 48 小时（2026-08 起已停更）或请求失败时，降级到 GitHub Search API（近 7 天新建、按 star 排序），`github_source` 字段记录实际来源。AI 快讯用 HN Algolia 接口（标题含 AI / LLM / Claude / Anthropic、过去 24 小时、按点赞数取前 5，标题含 stock / IPO / Nasdaq / market / investor 等财经词的会被 `isFinanceTitle` 过滤）。Anthropic 官网没有 RSS，hnrss.org 不稳定，所以没有使用 rss-parser。
 - 任一步失败返回 502（`stage` 字段标明 github / news / llm），不写入半成品。同一天重复生成会覆盖当天记录，并发触发会共用同一次执行。
 - 日期使用服务器本地时区，定时任务也按本地时间 08:00 执行。
 
