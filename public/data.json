@@ -1,71 +1,71 @@
 {
-  "date": "2026-11-06",
+  "date": "2026-11-07",
   "githubTrending": [
     {
       "name": "deepseek-ai/dsh-superagent-prototype",
       "description": "Towards a More Autonomous Agent System",
-      "stars": 19710,
+      "stars": 20242,
       "language": "TypeScript",
       "url": "https://github.com/deepseek-ai/dsh-superagent-prototype"
     },
     {
       "name": "storytold/craft-anything",
       "description": "Craft Anything: understand how any software works, and craft your own.",
-      "stars": 15715,
+      "stars": 18062,
       "language": "Rust",
       "url": "https://github.com/storytold/craft-anything"
     },
     {
-      "name": "patch-gg/pixelfx",
-      "description": "244 pixel art effects, every one a small piece of code. Plus a Claude Code skill to make your own.",
-      "stars": 5356,
-      "language": "JavaScript",
-      "url": "https://github.com/patch-gg/pixelfx"
+      "name": "zortos293/Lichii",
+      "description": "VERY experimental Nintendo Switch 2 emulator",
+      "stars": 3967,
+      "language": "C++",
+      "url": "https://github.com/zortos293/Lichii"
     },
     {
       "name": "KKKKhazix/agent-autoloop",
       "description": "让你的命令行 Agent 在后台自己接活、自己跟进到底；平时不烦你，遇到拿不准的事才发卡片找你拍板。",
-      "stars": 3358,
+      "stars": 3680,
       "language": "TypeScript",
       "url": "https://github.com/KKKKhazix/agent-autoloop"
     },
     {
-      "name": "zortos293/Lichii",
-      "description": "VERY experimental Nintendo Switch 2 emulator",
-      "stars": 2586,
-      "language": "C++",
-      "url": "https://github.com/zortos293/Lichii"
+      "name": "worldonlyu/Google_AI_Pro_2Year_ZeroCost_Auto",
+      "description": "Google_AI_Pro_2Year_ZeroCost_Auto",
+      "stars": 2881,
+      "language": "Python",
+      "url": "https://github.com/worldonlyu/Google_AI_Pro_2Year_ZeroCost_Auto"
     }
   ],
   "aiNews": [
     {
-      "title": "Claude Code sends your email address to websites",
-      "url": "https://github.com/anthropics/claude-code/issues/107757",
-      "source": "github.com"
+      "title": "AI is dramatically accelerating AI research",
+      "url": "https://www.planned-obsolescence.org/p/ai-is-dramatically-accelerating-ai",
+      "source": "planned-obsolescence.org"
     },
     {
-      "title": "Cuban: Facebook knowingly runs AI deepfake scam ads; docs say $16B fraud revenue",
-      "url": "https://finance.yahoo.com/technology/ai/articles/mark-cuban-says-facebook-knowingly-213000020.html",
-      "source": "finance.yahoo.com"
+      "title": "I struggle to believe that AI R&D is ingenious",
+      "url": "https://www.lesswrong.com/posts/DALNiKBjMGMF8grme/arjun-panickssery-s-shortform?commentId=fJtaHHHfx45tD7BSL",
+      "source": "lesswrong.com"
     },
     {
-      "title": "Closed AI models dominate the price-performance frontier",
-      "url": "https://village.dev/blog/closed-ai-models-now-dominate-the-price-performance-frontier/",
-      "source": "village.dev"
+      "title": "University libraries are being swarmed by AI bots, putting public access at risk",
+      "url": "https://www.cbc.ca/news/world/university-libraries-ai-data-scraping-bots-9.7408287",
+      "source": "cbc.ca"
     },
     {
-      "title": "Offline survival assistant – local LLM and Kiwix, runs from a USB stick",
-      "url": "https://github.com/sdalberto/ia-da-sobrevivencia/blob/main/README.en.md",
-      "source": "github.com"
+      "title": "AI for scientific discovery: How researchers use Claude",
+      "url": "https://www.anthropic.com/research/how-researchers-use-claude",
+      "source": "anthropic.com"
     },
     {
-      "title": "Independent Assessment of AI R&D Acceleration at Anthropic in October 2026",
-      "url": "https://metr.org/blog/2026-11-05-anthropic-ai-rd-acceleration-assessment/",
-      "source": "metr.org"
+      "title": "Memorilla: Latent Semantic Memory for LLMs",
+      "url": "https://arxiv.org/abs/2610.21375",
+      "source": "arxiv.org"
     }
   ],
-  "aiAnalysis": "今天的热度明显集中在“自主代理”这一条主线上：从 DeepSeek 的 superagent 原型、到让命令行 Agent 后台接活并主动请示的 agent-autoloop，再到 craft-anything 帮助理解并改造任意软件，本质上都在探索同一个问题——AI 从“回答问题”走向“持续干活、自己推进”。与此同时，pixelfx 把 244 个像素特效拆成可复用的小代码并提供 Claude Code 技能让用户自制，说明小颗粒度、可组合的能力封装正在成为创作者工具的流行形态。AI 动态里最值得注意的两件事：一是 Claude Code 向网站泄露邮箱地址，提醒我们 Agent 在真实网络环境中的隐私边界远比演示场景复杂；二是 METR 对 Anthropic 在 2026 年 10 月 AI 研发加速的独立评估，这类第三方度量比厂商自述更能反映能力曲线的真实斜率。另一个有趣信号是“离线生存助手”——本地 LLM 加 Kiwix 跑在 U 盘上，提示边缘化、离线化部署会是一个被低估的方向。给开发者的建议：在追逐 Agent 框架之前，先把权限、数据外发和可审计性当成一等公民来设计，否则自主性越高，风险敞口越大。",
+  "aiAnalysis": "今天最明显的趋势是 Agent 从“会聊天”走向“会自己干活”。GitHub 榜单上，deepseek 的自主 Agent 原型和 agent-autoloop 不约而同地把重点放在后台长时运行、遇事才找人的协作模式上，说明业界正在从单轮问答转向持续任务执行，工程难点也从提示词工程变成了任务编排、状态管理和权限边界。另一个看点是 Rust 项目 craft-anything 的高热度，它试图用 AI 帮助理解任意软件并复刻其功能，本质上是在探索代码理解与逆向工程的自动化，这对遗留系统维护和老项目重构有现实价值。AI 动态里，关于“AI 加速 AI 研究是否真的聪明”的争论值得注意，两篇观点对立的文章同天上榜，反映了对 AI 研发效能宣传的普遍怀疑，开发者应保持对基准与炒作的警惕。实用建议：现在就可以把 Agent 当作团队成员来配置，给它明确的任务边界、失败上报机制和人工确认卡点，先在小范围重复性任务上跑通闭环，再逐步扩大授权，别一上来就放手让它改核心代码。",
   "githubSource": "search",
-  "githubDataDate": "2026-11-06",
-  "generatedAt": "2026-11-06T05:19:54.435Z"
+  "githubDataDate": "2026-11-07",
+  "generatedAt": "2026-11-07T00:40:16.578Z"
 }
