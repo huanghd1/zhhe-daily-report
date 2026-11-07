@@ -9,8 +9,10 @@ import {
   DATA_PATH,
   decodeEnvFile,
   ENV_PATH,
+  extractKeywords,
   fetchAiNews,
   fetchGithubTrending,
+  fillStarDeltas,
   generateAnalysis,
   isFinanceTitle,
   loadEnvFile,
@@ -110,10 +112,29 @@ describe('fetchGithubTrending', () => {
       name: 'owner/repo-1',
       description: 'desc 1',
       stars: 1000,
+      addStars: 0,
       language: 'TypeScript',
+      languageColor: '#3178c6',
       url: 'https://github.com/owner/repo-1',
     });
     expect(fetchFn).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the feed addStars and a valid languageColor, rejecting unsafe colors', async () => {
+    mockFetch({
+      [TRENDING_URL]: {
+        pubDate: 'Thu, 05 Nov 2026 13:56:53 GMT',
+        items: [
+          trendingItem(1, { addStars: '1,002', language: 'HTML', languageColor: '#e34c26' }),
+          trendingItem(2, { language: 'Brainfuck', languageColor: 'red;background:url(x)' }),
+        ],
+      },
+    });
+
+    const [first, second] = (await fetchGithubTrending(NOW, {})).repos;
+    expect(first).toMatchObject({ addStars: 1002, languageColor: '#e34c26' });
+    // 不在表里的语言、非 hex 颜色都不写入，页面用默认灰色
+    expect(second).toMatchObject({ addStars: 0, languageColor: null });
   });
 
   it('falls back to the GitHub Search API when the feed is older than 48h', async () => {
@@ -130,8 +151,9 @@ describe('fetchGithubTrending', () => {
 
     expect(result.source).toBe('search');
     expect(result.dataDate).toBe('2026-11-06');
+    // Search API 没有今日增量，addStars 为 null，由 fillStarDeltas 对比上一份 data.json 补齐
     expect(result.repos).toEqual([
-      { name: 'a/b', description: '', stars: 19525, language: null, url: 'https://github.com/a/b' },
+      { name: 'a/b', description: '', stars: 19525, addStars: null, language: null, languageColor: null, url: 'https://github.com/a/b' },
     ]);
     const searchUrl = new URL(String(fetchFn.mock.calls[1][0]));
     expect(searchUrl.searchParams.get('q')).toBe('created:>=2026-10-30');
@@ -203,11 +225,11 @@ describe('fetchAiNews', () => {
     const news = await fetchAiNews(NOW);
 
     expect(news).toEqual([
-      { title: 'Top story', url: 'https://www.wsj.com/a', source: 'wsj.com' },
-      { title: 'Ask HN: agents?', url: 'https://news.ycombinator.com/item?id=4', source: 'news.ycombinator.com' },
-      { title: 'Four', url: 'https://four.dev/', source: 'four.dev' },
-      { title: 'Five', url: 'https://five.dev/', source: 'five.dev' },
-      { title: 'Six', url: 'https://six.dev/', source: 'six.dev' },
+      { title: 'Top story', url: 'https://www.wsj.com/a', source: 'wsj.com', points: 469 },
+      { title: 'Ask HN: agents?', url: 'https://news.ycombinator.com/item?id=4', source: 'news.ycombinator.com', points: 200 },
+      { title: 'Four', url: 'https://four.dev/', source: 'four.dev', points: 100 },
+      { title: 'Five', url: 'https://five.dev/', source: 'five.dev', points: 90 },
+      { title: 'Six', url: 'https://six.dev/', source: 'six.dev', points: 80 },
     ]);
     // 只查过去 24 小时，关键词之间为 OR
     const url = new URL(String(fetchFn.mock.calls[0][0]));
@@ -321,14 +343,65 @@ describe('generateAnalysis', () => {
 });
 
 describe('buildPrompt', () => {
-  it('includes every repo and news item', () => {
+  const repo = { name: 'a/b', description: 'agent tool', stars: 1200, language: 'Rust', languageColor: null, url: 'https://github.com/a/b' };
+
+  it('includes every repo and news item, with star deltas and HN points when known', () => {
     const prompt = buildPrompt(
-      [{ name: 'a/b', description: 'agent tool', stars: 1200, language: 'Rust', url: 'https://github.com/a/b' }],
-      [{ title: 'Claude news', url: 'https://claude.com/x', source: 'claude.com' }],
+      [{ ...repo, addStars: 300 }, { ...repo, name: 'c/d', addStars: null }],
+      [{ title: 'Claude news', url: 'https://claude.com/x', source: 'claude.com', points: 120 }],
     );
-    expect(prompt).toContain('a/b（Rust，1200 stars）：agent tool');
-    expect(prompt).toContain('Claude news（来源：claude.com）');
+    expect(prompt).toContain('a/b（Rust，1200 stars，新增 300）：agent tool');
+    expect(prompt).toContain('c/d（Rust，1200 stars）：agent tool');
+    expect(prompt).toContain('Claude news（来源：claude.com，HN 120 分）');
     expect(prompt).toContain('300 字');
+  });
+});
+
+describe('fillStarDeltas', () => {
+  const repo = (name, stars, addStars = null) => ({ name, description: '', stars, addStars, language: null, languageColor: null, url: `https://github.com/${name}` });
+  const previous = {
+    generatedAt: '2026-11-06T00:40:00.000Z',
+    githubTrending: [{ name: 'a/b', stars: 1000 }, { name: 'c/d', stars: 50 }],
+  };
+
+  it('diffs against the previous data.json and leaves new repos as null', () => {
+    const { repos, since } = fillStarDeltas([repo('a/b', 1250), repo('new/one', 900), repo('c/d', 40)], previous);
+
+    expect(repos.map((r) => r.addStars)).toEqual([250, null, 0]);
+    expect(since).toBe('2026-11-06T00:40:00.000Z');
+  });
+
+  it('keeps deltas that already came from the feed and reports no baseline', () => {
+    const { repos, since } = fillStarDeltas([repo('a/b', 1250, 77)], previous);
+
+    expect(repos[0].addStars).toBe(77);
+    expect(since).toBeNull();
+  });
+
+  it.each([null, 'garbage', { githubTrending: 'nope' }])('tolerates a missing or malformed previous file: %j', (prev) => {
+    expect(fillStarDeltas([repo('a/b', 1)], prev)).toEqual({ repos: [repo('a/b', 1)], since: null });
+  });
+});
+
+describe('extractKeywords', () => {
+  it('ranks by number of matching items and matches whole words only', () => {
+    const keywords = extractKeywords(
+      [{ name: 'x/agent-kit', description: 'Claude Code agents in Rust' }, { name: 'y/storage', description: 'fast object storage' }],
+      [
+        { title: 'Claude Code sends your email address to websites' },
+        { title: 'Agentic coding with open-weight LLMs' },
+        { title: 'Facebook runs AI deepfake scam ads' },
+      ],
+    );
+
+    expect(keywords).toEqual(['Claude', 'Agent', 'LLM', '开源', '安全', 'Rust']);
+    // storage 不应命中 RAG
+    expect(keywords).not.toContain('RAG');
+  });
+
+  it('returns at most 6 keywords and an empty list when nothing matches', () => {
+    expect(extractKeywords([], [{ title: 'Claude Anthropic OpenAI DeepSeek agent LLM MCP RAG' }])).toHaveLength(6);
+    expect(extractKeywords([], [{ title: 'Nothing relevant here' }])).toEqual([]);
   });
 });
 
@@ -356,15 +429,34 @@ describe('updateData', () => {
     expect(saved).toEqual(report);
     expect(saved).toMatchObject({
       date: '2026-11-06',
-      githubTrending: [{ name: 'a/b', description: '', stars: 7, language: 'Rust', url: 'https://github.com/a/b' }],
-      aiNews: [{ title: 'New open LLM released', url: 'https://example.com/llm', source: 'example.com' }],
+      githubTrending: [
+        { name: 'a/b', description: '', stars: 7, addStars: null, language: 'Rust', languageColor: '#dea584', url: 'https://github.com/a/b' },
+      ],
+      aiNews: [{ title: 'New open LLM released', url: 'https://example.com/llm', source: 'example.com', points: 10 }],
       aiAnalysis: '第一段\n\n第二段',
+      // 只看名称、描述和标题，不看 language 字段
+      keywords: ['LLM'],
       githubSource: 'search',
       githubDataDate: '2026-11-06',
+      addStarsSince: null,
     });
     expect(Number.isNaN(Date.parse(saved.generatedAt))).toBe(false);
     // 不留临时文件
     expect(readdirSync(dirname(path))).toEqual(['data.json']);
+  });
+
+  it('computes star deltas against the previous data.json', async () => {
+    const path = tempDataPath();
+    mockFetch(happyRoutes());
+    const first = await updateData({ now: NOW, env: LLM_ENV, path });
+
+    const routes = happyRoutes();
+    routes[SEARCH_URL].items[0].stargazers_count = 19;
+    mockFetch(routes);
+    const second = await updateData({ now: new Date(NOW.getTime() + 86400_000), env: LLM_ENV, path });
+
+    expect(second.githubTrending[0].addStars).toBe(12);
+    expect(second.addStarsSince).toBe(first.generatedAt);
   });
 
   it.each([

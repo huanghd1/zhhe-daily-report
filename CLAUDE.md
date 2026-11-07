@@ -45,7 +45,11 @@ npm run preview             # http://127.0.0.1:4173/ 预览，PORT 可改端口
 - 数据源：GitHub 榜单优先用 isboyjc/github-trending-api，`pubDate` 超过 48 小时（2026-08 起已停更）或请求失败时降级到 GitHub Search API（近 7 天新建、按 star 排序），`githubSource` 记录实际来源。AI 快讯用 HN Algolia 接口（标题含 AI / LLM / Claude / Anthropic、过去 24 小时、按点赞数取前 5，`isFinanceTitle` 过滤财经标题）。Anthropic 官网没有 RSS，hnrss.org 不稳定。
 - 任一步失败都抛出带 `stage`（config / github / news / llm）的 `ReportError`，脚本以非 0 退出，不写文件。写入时先写 `data.json.tmp` 再改名，旧文件要么完整保留要么被完整替换。
 - 日期固定按北京时间（UTC+8）计算，不依赖运行环境时区；页面同样按北京时间判断“今天”，数据不是今天时显示提示条。
-- `data.json` 字段：`date`、`githubTrending`、`aiNews`、`aiAnalysis`、`githubSource`、`githubDataDate`、`generatedAt`（ISO 字符串）。改字段时 `index.html` 和测试要一起改。
+- `data.json` 字段：`date`、`githubTrending`、`aiNews`、`aiAnalysis`、`keywords`、`githubSource`、`githubDataDate`、`addStarsSince`、`generatedAt`（ISO 字符串）。改字段时 `index.html` 和测试要一起改。
+  - 仓库：`name`、`description`、`stars`、`addStars`、`language`、`languageColor`、`url`。`addStars` 用 isboyjc 自带值；Search API 没有这个数，用上一份 data.json 同名仓库的 star 数算差值（`fillStarDeltas`），新上榜仓库为 `null`；`addStarsSince` 是对比基准的 `generatedAt`。`languageColor` 只接受 `#rgb` / `#rrggbb`，页面写进 style 前会再校验一次。
+  - 快讯：`title`、`url`、`source`、`points`（HN 点赞数）。
+  - `keywords`：`extractKeywords` 按 `KEYWORD_RULES` 整词匹配仓库名称 + 描述和快讯标题，按命中条数取前 6 个。
+- 页面没有生成接口，右上角“手动更新数据”只是跳转到 Actions 的 workflow 页面手动触发。
 
 ## GitHub Actions
 

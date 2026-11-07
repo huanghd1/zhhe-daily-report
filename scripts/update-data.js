@@ -7,8 +7,9 @@ import { fileURLToPath } from 'node:url';
 import { parseEnv } from 'node:util';
 
 /**
- * @typedef {{ name: string, description: string, stars: number, language: string | null, url: string }} TrendingRepo
- * @typedef {{ title: string, url: string, source: string }} NewsItem
+ * addStars：今日新增 star（isboyjc 自带）；Search API 没有这个数，用上一份 data.json 的 star 数估算，无法估算时为 null
+ * @typedef {{ name: string, description: string, stars: number, addStars: number | null, language: string | null, languageColor: string | null, url: string }} TrendingRepo
+ * @typedef {{ title: string, url: string, source: string, points: number }} NewsItem
  * @typedef {{ repos: TrendingRepo[], source: 'trending' | 'search', dataDate: string }} GithubResult
  * @typedef {{ apiKey: string, baseUrl: string, model: string }} LlmConfig
  * @typedef {'config' | 'github' | 'news' | 'llm'} ReportStage
@@ -29,6 +30,36 @@ const HN_KEYWORDS = 'AI LLM Claude Anthropic';
 // 按整词匹配（允许复数），避免误伤 marketplace、Stockfish 这类技术词；不收 shares 等常见动词，免得误删产品新闻
 const FINANCE_TITLE_PATTERN =
   /\b(?:stocks?|ipos?|nasdaq|markets?|investors?|valuations?|wall street|sell-?offs?)\b/i;
+
+// GitHub 的语言配色（取自 github-linguist）。isboyjc 自带 languageColor，Search API 没有，按语言名补上
+const LANGUAGE_COLORS = {
+  JavaScript: '#f1e05a', TypeScript: '#3178c6', Python: '#3572A5', Java: '#b07219', Go: '#00ADD8',
+  Rust: '#dea584', 'C++': '#f34b7d', C: '#555555', 'C#': '#178600', Ruby: '#701516', PHP: '#4F5D95',
+  Swift: '#F05138', Kotlin: '#A97BFF', Dart: '#00B4AB', Shell: '#89e051', HTML: '#e34c26', CSS: '#563d7c',
+  Vue: '#41b883', Svelte: '#ff3e00', 'Jupyter Notebook': '#DA5B0B', Lua: '#000080', Zig: '#ec915c',
+  Scala: '#c22d40', Elixir: '#6e4a7e', Haskell: '#5e5086', 'Objective-C': '#438eff', MDX: '#fcb32c',
+  Nix: '#7e7eff', Dockerfile: '#384d54', Julia: '#a270ba', R: '#198CE7', Clojure: '#db5855',
+  Solidity: '#AA6746', Cuda: '#3A4E3A', Mojo: '#ff4c1f', Astro: '#ff5a03',
+};
+const HEX_COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+// 今日关键词：[展示名, 匹配规则]，统计命中的仓库和快讯条数，按命中数取前 KEYWORD_LIMIT 个。
+// 英文按整词匹配，避免 rag 命中 storage 这类误报
+const KEYWORD_RULES = [
+  ['Claude', /\bclaude\b/i],
+  ['Anthropic', /\banthropic\b/i],
+  ['OpenAI', /\bopenai\b|\bgpt-?\d/i],
+  ['DeepSeek', /\bdeepseek\b/i],
+  ['Agent', /\bagent(?:s|ic)?\b|智能体/i],
+  ['LLM', /\bllms?\b|大模型|语言模型/i],
+  ['MCP', /\bmcp\b|model context protocol/i],
+  ['RAG', /\brag\b/i],
+  ['开源', /\bopen[- ]?(?:source|weights?)\b|开源/i],
+  ['推理', /\binference\b|\breasoning\b|推理/i],
+  ['安全', /\bsecurity\b|\bprivacy\b|\bleaks?\b|\bscams?\b|安全|隐私/i],
+  ['Rust', /\brust\b/i],
+];
+const KEYWORD_LIMIT = 6;
 
 const FETCH_TIMEOUT_MS = 15_000;
 // 推理类模型会先输出思考过程，耗时较长
@@ -132,9 +163,21 @@ function asRecord(value) {
 
 // ---------- GitHub ----------
 
+// 数据源给出的颜色合法时直接用，否则按语言名查表；页面会把颜色写进 style，所以只接受 #rgb / #rrggbb
+/**
+ * @param {unknown} explicit
+ * @param {string | null} language
+ * @returns {string | null}
+ */
+function languageColorOf(explicit, language) {
+  const hex = str(explicit);
+  if (HEX_COLOR.test(hex)) return hex;
+  return (language && Object.hasOwn(LANGUAGE_COLORS, language) && LANGUAGE_COLORS[language]) || null;
+}
+
 /**
  * @param {unknown} raw
- * @param {{ name: string, url: string, stars: string }} keys
+ * @param {{ name: string, url: string, stars: string, addStars?: string }} keys
  * @returns {TrendingRepo | null}
  */
 function toRepo(raw, keys) {
@@ -142,11 +185,14 @@ function toRepo(raw, keys) {
   const name = str(r[keys.name]);
   const url = safeUrl(r[keys.url]);
   if (!name || !url) return null;
+  const language = str(r.language) || null;
   return {
     name,
     description: str(r.description),
     stars: parseStars(r[keys.stars]),
-    language: str(r.language) || null,
+    addStars: keys.addStars ? parseStars(r[keys.addStars]) : null,
+    language,
+    languageColor: languageColorOf(r.languageColor, language),
     url,
   };
 }
@@ -164,7 +210,7 @@ async function fetchTrendingFeed(now) {
   }
   const items = Array.isArray(data.items) ? data.items : [];
   const repos = items
-    .map((it) => toRepo(it, { name: 'title', url: 'url', stars: 'stars' }))
+    .map((it) => toRepo(it, { name: 'title', url: 'url', stars: 'stars', addStars: 'addStars' }))
     .filter((r) => r !== null)
     .slice(0, TOP_REPOS);
   if (repos.length === 0) return null;
@@ -216,6 +262,51 @@ export async function fetchGithubTrending(now = new Date(), env = process.env) {
   return fetchSearchFallback(now, env.GITHUB_TOKEN?.trim() || undefined);
 }
 
+/**
+ * Search API 没有“今日新增 star”：对 addStars 为 null 的仓库，用上一份 data.json 里同名仓库的 star 数算差值。
+ * 上一份里没有这个仓库（今天新上榜）时保持 null。返回的 since 是对比基准的生成时间，没有用到时为 null
+ * @param {TrendingRepo[]} repos
+ * @param {unknown} previous 上一份 data.json 的内容，没有或损坏时为 null
+ * @returns {{ repos: TrendingRepo[], since: string | null }}
+ */
+export function fillStarDeltas(repos, previous) {
+  const prev = asRecord(previous);
+  /** @type {Map<string, number>} */
+  const before = new Map();
+  for (const item of Array.isArray(prev.githubTrending) ? prev.githubTrending : []) {
+    const r = asRecord(item);
+    if (typeof r.name === 'string' && typeof r.stars === 'number') before.set(r.name, r.stars);
+  }
+  let used = false;
+  const filled = repos.map((repo) => {
+    const base = before.get(repo.name);
+    if (repo.addStars !== null || base === undefined) return repo;
+    used = true;
+    return { ...repo, addStars: Math.max(0, repo.stars - base) };
+  });
+  const since = used && !Number.isNaN(Date.parse(str(prev.generatedAt))) ? str(prev.generatedAt) : null;
+  return { repos: filled, since };
+}
+
+/**
+ * 统计仓库（名称 + 描述）和快讯标题里命中的关键词，按命中条数降序，同数时按 KEYWORD_RULES 的顺序
+ * @param {TrendingRepo[]} repos
+ * @param {NewsItem[]} news
+ * @returns {string[]}
+ */
+export function extractKeywords(repos, news) {
+  const texts = [...repos.map((r) => `${r.name} ${r.description}`), ...news.map((n) => n.title)];
+  return KEYWORD_RULES.map(([label, pattern], order) => ({
+    label,
+    order,
+    hits: texts.filter((t) => pattern.test(t)).length,
+  }))
+    .filter((k) => k.hits > 0)
+    .sort((a, b) => b.hits - a.hits || a.order - b.order)
+    .slice(0, KEYWORD_LIMIT)
+    .map((k) => k.label);
+}
+
 // ---------- AI 快讯（Hacker News）----------
 
 /** @param {string} url */
@@ -255,7 +346,7 @@ export async function fetchAiNews(now = new Date()) {
     const key = title.toLowerCase();
     if (!title || !url || seen.has(key) || isFinanceTitle(title)) continue;
     seen.add(key);
-    news.push({ title, url, source: hostOf(url) });
+    news.push({ title, url, source: hostOf(url), points: parseStars(hit.points) });
     if (news.length === TOP_NEWS) break;
   }
   if (news.length === 0) {
@@ -294,9 +385,13 @@ export function readLlmConfig(env = process.env) {
  */
 export function buildPrompt(repos, news) {
   const repoLines = repos.map(
-    (r, i) => `${i + 1}. ${r.name}（${r.language ?? '未知语言'}，${r.stars} stars）：${r.description || '无描述'}`,
+    (r, i) =>
+      `${i + 1}. ${r.name}（${r.language ?? '未知语言'}，${r.stars} stars` +
+      `${typeof r.addStars === 'number' ? `，新增 ${r.addStars}` : ''}）：${r.description || '无描述'}`,
   );
-  const newsLines = news.map((n, i) => `${i + 1}. ${n.title}（来源：${n.source}）`);
+  const newsLines = news.map(
+    (n, i) => `${i + 1}. ${n.title}（来源：${n.source}${n.points ? `，HN ${n.points} 分` : ''}）`,
+  );
   return [
     '以下是今天的 GitHub 热门项目和 AI 领域动态：',
     '',
@@ -379,23 +474,40 @@ export function loadEnvFile(path = ENV_PATH, env = process.env) {
  * 抓取并分析，返回写入 data.json 的完整内容；任一步失败都会抛出 ReportError
  * @param {Date} [now]
  * @param {Record<string, string | undefined>} [env]
+ * @param {unknown} [previous] 上一份 data.json，用于估算 Search API 数据的 star 增量
  */
-export async function buildReport(now = new Date(), env = process.env) {
+export async function buildReport(now = new Date(), env = process.env, previous = null) {
   // 先检查配置，缺 key 时不必发起任何外部请求
   const llm = readLlmConfig(env);
   // 日期在开始时确定，跨零点执行也记在发起当天
   const date = beijingDate(now);
   const [github, news] = await Promise.all([fetchGithubTrending(now, env), fetchAiNews(now)]);
-  const analysis = await generateAnalysis(buildPrompt(github.repos, news), llm);
+  const { repos, since } = fillStarDeltas(github.repos, previous);
+  const analysis = await generateAnalysis(buildPrompt(repos, news), llm);
   return {
     date,
-    githubTrending: github.repos,
+    githubTrending: repos,
     aiNews: news,
     aiAnalysis: analysis,
+    keywords: extractKeywords(repos, news),
     githubSource: github.source,
     githubDataDate: github.dataDate,
+    // star 增量的对比基准时间（上一份 data.json 的 generatedAt）；增量来自 isboyjc 或无法估算时为 null
+    addStarsSince: since,
     generatedAt: new Date().toISOString(),
   };
+}
+
+/**
+ * 读取上一份 data.json；不存在或损坏时返回 null（只影响 star 增量，不影响生成）
+ * @param {string} path
+ */
+function readPreviousReport(path) {
+  try {
+    return JSON.parse(readFileSync(path, 'utf8'));
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -420,7 +532,7 @@ export function writeReport(report, path = DATA_PATH) {
  * @param {{ now?: Date, env?: Record<string, string | undefined>, path?: string }} [options]
  */
 export async function updateData({ now = new Date(), env = process.env, path = DATA_PATH } = {}) {
-  const report = await buildReport(now, env);
+  const report = await buildReport(now, env, readPreviousReport(path));
   writeReport(report, path);
   return report;
 }
@@ -437,7 +549,8 @@ async function main() {
   console.log(
     `已写入 ${relative(PROJECT_ROOT, DATA_PATH)}：${report.date}，` +
       `GitHub ${report.githubSource === 'search' ? '近 7 天新项目' : 'Trending'} ${report.githubTrending.length} 个，` +
-      `AI 快讯 ${report.aiNews.length} 条，分析 ${report.aiAnalysis.length} 字`,
+      `AI 快讯 ${report.aiNews.length} 条，分析 ${report.aiAnalysis.length} 字，` +
+      `关键词 ${report.keywords.join(' / ') || '无'}`,
   );
 }
 

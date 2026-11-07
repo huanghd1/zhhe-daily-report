@@ -4,36 +4,46 @@
     {
       "name": "deepseek-ai/dsh-superagent-prototype",
       "description": "Towards a More Autonomous Agent System",
-      "stars": 20242,
+      "stars": 20611,
+      "addStars": 369,
       "language": "TypeScript",
+      "languageColor": "#3178c6",
       "url": "https://github.com/deepseek-ai/dsh-superagent-prototype"
     },
     {
       "name": "storytold/craft-anything",
       "description": "Craft Anything: understand how any software works, and craft your own.",
-      "stars": 18062,
+      "stars": 19557,
+      "addStars": 1495,
       "language": "Rust",
+      "languageColor": "#dea584",
       "url": "https://github.com/storytold/craft-anything"
     },
     {
       "name": "zortos293/Lichii",
       "description": "VERY experimental Nintendo Switch 2 emulator",
-      "stars": 3967,
+      "stars": 4663,
+      "addStars": 696,
       "language": "C++",
+      "languageColor": "#f34b7d",
       "url": "https://github.com/zortos293/Lichii"
     },
     {
       "name": "KKKKhazix/agent-autoloop",
       "description": "让你的命令行 Agent 在后台自己接活、自己跟进到底；平时不烦你，遇到拿不准的事才发卡片找你拍板。",
-      "stars": 3680,
+      "stars": 3881,
+      "addStars": 201,
       "language": "TypeScript",
+      "languageColor": "#3178c6",
       "url": "https://github.com/KKKKhazix/agent-autoloop"
     },
     {
       "name": "worldonlyu/Google_AI_Pro_2Year_ZeroCost_Auto",
       "description": "Google_AI_Pro_2Year_ZeroCost_Auto",
-      "stars": 2881,
+      "stars": 3000,
+      "addStars": 119,
       "language": "Python",
+      "languageColor": "#3572A5",
       "url": "https://github.com/worldonlyu/Google_AI_Pro_2Year_ZeroCost_Auto"
     }
   ],
@@ -41,31 +51,42 @@
     {
       "title": "AI is dramatically accelerating AI research",
       "url": "https://www.planned-obsolescence.org/p/ai-is-dramatically-accelerating-ai",
-      "source": "planned-obsolescence.org"
-    },
-    {
-      "title": "I struggle to believe that AI R&D is ingenious",
-      "url": "https://www.lesswrong.com/posts/DALNiKBjMGMF8grme/arjun-panickssery-s-shortform?commentId=fJtaHHHfx45tD7BSL",
-      "source": "lesswrong.com"
+      "source": "planned-obsolescence.org",
+      "points": 333
     },
     {
       "title": "University libraries are being swarmed by AI bots, putting public access at risk",
       "url": "https://www.cbc.ca/news/world/university-libraries-ai-data-scraping-bots-9.7408287",
-      "source": "cbc.ca"
-    },
-    {
-      "title": "AI for scientific discovery: How researchers use Claude",
-      "url": "https://www.anthropic.com/research/how-researchers-use-claude",
-      "source": "anthropic.com"
+      "source": "cbc.ca",
+      "points": 130
     },
     {
       "title": "Memorilla: Latent Semantic Memory for LLMs",
       "url": "https://arxiv.org/abs/2610.21375",
-      "source": "arxiv.org"
+      "source": "arxiv.org",
+      "points": 108
+    },
+    {
+      "title": "Microsoft is winding down Oracle deal to rent AI cloud capacity",
+      "url": "https://www.reuters.com/business/microsoft-is-winding-down-oracle-deal-rent-ai-cloud-capacity-bloomberg-news-2026-11-06/",
+      "source": "reuters.com",
+      "points": 102
+    },
+    {
+      "title": "Perplexity launches AI agents for work",
+      "url": "https://www.perplexity.ai/en-GB/hub/blog/teammates-are-agents-for-complex-ongoing-work",
+      "source": "perplexity.ai",
+      "points": 61
     }
   ],
-  "aiAnalysis": "今天最明显的趋势是 Agent 从“会聊天”走向“会自己干活”。GitHub 榜单上，deepseek 的自主 Agent 原型和 agent-autoloop 不约而同地把重点放在后台长时运行、遇事才找人的协作模式上，说明业界正在从单轮问答转向持续任务执行，工程难点也从提示词工程变成了任务编排、状态管理和权限边界。另一个看点是 Rust 项目 craft-anything 的高热度，它试图用 AI 帮助理解任意软件并复刻其功能，本质上是在探索代码理解与逆向工程的自动化，这对遗留系统维护和老项目重构有现实价值。AI 动态里，关于“AI 加速 AI 研究是否真的聪明”的争论值得注意，两篇观点对立的文章同天上榜，反映了对 AI 研发效能宣传的普遍怀疑，开发者应保持对基准与炒作的警惕。实用建议：现在就可以把 Agent 当作团队成员来配置，给它明确的任务边界、失败上报机制和人工确认卡点，先在小范围重复性任务上跑通闭环，再逐步扩大授权，别一上来就放手让它改核心代码。",
+  "aiAnalysis": "今天的榜单透露出一个清晰的方向：Agent 正在从“能对话”走向“能自己干活”。deepseek 的 superagent 原型、agent-autoloop 提出的后台自动接活与人工拍板机制，都在回答同一个问题——如何让智能体在无人盯守时依然可控。这说明行业焦点已从模型能力转向工程化的自治闭环，谁把权限边界和干预时机设计好，谁就更接近落地。另一个值得注意的现象是“理解工具”类项目走红，craft-anything 一天涨近一千五百星，反映出开发者对逆向分析、系统理解的强烈需求，这与 AI 生成代码泛滥后对可读性和可信度的焦虑互为表里。AI 前沿也不全是好消息，高校图书馆被爬虫冲击，提醒我们公共资源正在为无节制的模型训练买单。对开发者而言，一条实用建议是：在构建 Agent 时先把“人在回路”的触发条件写成明确规则和日志，别等失控后再补，可观测性和中止机制比炫技更能决定产品寿命。",
+  "keywords": [
+    "Agent",
+    "DeepSeek",
+    "LLM"
+  ],
   "githubSource": "search",
   "githubDataDate": "2026-11-07",
-  "generatedAt": "2026-11-07T00:40:16.578Z"
+  "addStarsSince": "2026-11-07T00:40:16.578Z",
+  "generatedAt": "2026-11-07T13:21:34.785Z"
 }
